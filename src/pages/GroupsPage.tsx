@@ -20,11 +20,7 @@ const GroupsPage = () => {
   );
 
   const userGroups = filteredGroups.filter(group => 
-    group.members.some(member => member.id === useApp().currentUser.id)
-  );
-
-  const otherGroups = filteredGroups.filter(group => 
-    !group.members.some(member => member.id === useApp().currentUser.id)
+    group.members.some(member => member.userId === useApp().currentUser.id)
   );
 
   return (
@@ -91,23 +87,7 @@ const GroupsPage = () => {
             )}
           </div>
 
-          {/* Outros Grupos */}
-          {otherGroups.length > 0 && (
-            <div className="animate-slide-up" style={{ animationDelay: '100ms' }}>
-              <div className="flex items-center gap-2 mb-4">
-                <Users className="h-5 w-5 text-muted-foreground" />
-                <h2 className="text-xl font-semibold">Outros Grupos</h2>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {otherGroups.map((group) => (
-                  <GroupCard key={group.id} group={group} />
-                ))}
-              </div>
-            </div>
-          )}
-          
-          {filteredGroups.length === 0 && (
+          {filteredGroups.length === 0 && searchQuery !== '' && (
             <Card className="p-6 text-center bg-muted/40 mt-8 animate-fade-in">
               <Search className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <h3 className="text-lg font-medium mb-2">Nenhum resultado encontrado</h3>

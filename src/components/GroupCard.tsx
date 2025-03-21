@@ -1,95 +1,104 @@
 
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Group } from '@/types';
-import { Users, Calendar } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { ShieldCheck, Users, Calendar, ClipboardList } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
+import { Group } from '@/types';
 
 interface GroupCardProps {
   group: Group;
 }
 
 const GroupCard: React.FC<GroupCardProps> = ({ group }) => {
-  const { currentUser, joinGroup, leaveGroup, getTasksForGroup } = useApp();
+  const { getTasksForGroup, isGroupAdmin, getUserById, currentUser } = useApp();
   
-  const isCurrentUserInGroup = group.members.some((member) => member.id === currentUser.id);
+  const tasks = getTasksForGroup(group.id);
+  const isAdmin = isGroupAdmin(group.id);
+  const creator = getUserById(group.createdBy);
+  
+  const formattedDate = format(new Date(group.createdAt), "dd 'de' MMMM 'de' yyyy", { locale: ptBR });
+  
   const memberCount = group.members.length;
-  const taskCount = getTasksForGroup(group.id).length;
-
-  const formatDate = (date: Date) => {
-    return format(new Date(date), "dd 'de' MMMM 'de' yyyy", { locale: ptBR });
+  const memberUsers = group.members.map(member => getUserById(member.userId)).filter(Boolean);
+  const visibleMembers = memberUsers.slice(0, 3);
+  const moreMembers = memberCount > 3 ? memberCount - 3 : 0;
+  
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map((n) => n[0])
+      .join('')
+      .toUpperCase()
+      .substring(0, 2);
   };
-
-  const handleJoinLeave = () => {
-    if (isCurrentUserInGroup) {
-      leaveGroup(group.id);
-    } else {
-      joinGroup(group.id);
-    }
-  };
+  
+  const currentUserMember = group.members.find(member => member.userId === currentUser.id);
+  const userRole = currentUserMember?.role;
 
   return (
-    <Card className="overflow-hidden transition-all duration-300 hover:shadow-subtle">
-      <CardHeader className="p-4 pb-2">
-        <CardTitle className="text-lg">
-          <Link 
-            to={`/groups/${group.id}`} 
-            className="hover:text-primary transition-colors"
-          >
-            {group.name}
-          </Link>
-        </CardTitle>
-      </CardHeader>
-      
-      <CardContent className="p-4 pt-2">
-        {group.description && (
-          <p className="text-sm text-muted-foreground mb-4">
-            {group.description}
-          </p>
-        )}
+    <Link to={`/groups/${group.id}`}>
+      <Card className="h-full hover:shadow-md transition-shadow overflow-hidden">
+        <CardHeader className="pb-2">
+          <div className="flex justify-between items-start">
+            <CardTitle className="text-xl">{group.name}</CardTitle>
+            {isAdmin && (
+              <Badge className="ml-2">
+                <ShieldCheck className="h-3 w-3 mr-1" /> Admin
+              </Badge>
+            )}
+          </div>
+          <CardDescription>
+            {group.description || 'Sem descrição'}
+          </CardDescription>
+        </CardHeader>
         
-        <div className="flex flex-wrap gap-2">
-          <Badge variant="outline" className="flex items-center">
-            <Users size={14} className="mr-1" />
-            {memberCount} {memberCount === 1 ? 'membro' : 'membros'}
-          </Badge>
+        <CardContent className="pb-2">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground mb-3">
+            <Calendar className="h-4 w-4" />
+            <span>Criado em {formattedDate}</span>
+          </div>
           
-          <Badge variant="outline" className="flex items-center">
-            <Calendar size={14} className="mr-1" />
-            Criado em {formatDate(group.createdAt)}
-          </Badge>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground mb-3">
+            <ClipboardList className="h-4 w-4" />
+            <span>{tasks.length} {tasks.length === 1 ? 'tarefa' : 'tarefas'}</span>
+          </div>
           
-          {taskCount > 0 && (
-            <Badge variant="secondary" className="flex items-center">
-              {taskCount} {taskCount === 1 ? 'tarefa' : 'tarefas'}
-            </Badge>
-          )}
-        </div>
-      </CardContent>
-      
-      <CardFooter className="p-4 pt-0 flex justify-between">
-        <Button 
-          variant={isCurrentUserInGroup ? "outline" : "default"} 
-          size="sm"
-          onClick={handleJoinLeave}
-        >
-          {isCurrentUserInGroup ? 'Sair' : 'Participar'}
-        </Button>
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-2">
+              <Users className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm text-muted-foreground">{memberCount} {memberCount === 1 ? 'membro' : 'membros'}</span>
+            </div>
+            
+            {userRole && (
+              <Badge variant={userRole === 'admin' ? 'default' : 'secondary'}>
+                {userRole === 'admin' ? 'Admin' : 'Membro'}
+              </Badge>
+            )}
+          </div>
+        </CardContent>
         
-        {isCurrentUserInGroup && (
-          <Button asChild variant="secondary" size="sm">
-            <Link to={`/groups/${group.id}`}>
-              Ver Tarefas
-            </Link>
-          </Button>
-        )}
-      </CardFooter>
-    </Card>
+        <CardFooter className="pt-4 border-t">
+          <div className="flex -space-x-2">
+            {visibleMembers.map((member, index) => (
+              <Avatar key={index} className="border-2 border-background h-8 w-8">
+                <AvatarImage src={member?.avatar} alt={member?.name} />
+                <AvatarFallback className="text-xs">{getInitials(member?.name || '')}</AvatarFallback>
+              </Avatar>
+            ))}
+            {moreMembers > 0 && (
+              <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-xs border-2 border-background">
+                +{moreMembers}
+              </div>
+            )}
+          </div>
+        </CardFooter>
+      </Card>
+    </Link>
   );
 };
 

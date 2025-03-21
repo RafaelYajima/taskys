@@ -1,7 +1,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import { User, Group, Task, AuthUser } from '@/types';
+import { User, Group, Task, AuthUser, Notification, Invite, GroupMember } from '@/types';
 import { toast } from 'sonner';
 
 interface AppContextType {
@@ -9,6 +9,8 @@ interface AppContextType {
   users: User[];
   groups: Group[];
   tasks: Task[];
+  notifications: Notification[];
+  invites: Invite[];
   isAuthenticated: boolean;
   createUser: (name: string) => User;
   registerUser: (name: string, email: string, password: string) => Promise<boolean>;
@@ -30,6 +32,18 @@ interface AppContextType {
   getGroupById: (groupId: string) => Group | undefined;
   getTasksForGroup: (groupId: string) => Task[];
   getUserById: (userId: string) => User | undefined;
+  // Novos métodos de gerenciamento de grupo
+  inviteToGroup: (groupId: string, email: string) => void;
+  respondToInvite: (inviteId: string, accept: boolean) => void;
+  changeMemberRole: (groupId: string, userId: string, newRole: 'admin' | 'member') => void;
+  removeMemberFromGroup: (groupId: string, userId: string) => void;
+  // Notificações
+  getUnreadNotificationsCount: () => number;
+  markNotificationAsRead: (notificationId: string) => void;
+  markAllNotificationsAsRead: () => void;
+  getUserInvites: () => Invite[];
+  isGroupAdmin: (groupId: string) => boolean;
+  getGroupMembers: (groupId: string) => (User & { role: 'admin' | 'member' })[];
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -79,6 +93,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     loadFromStorage('tasks', [])
   );
 
+  const [notifications, setNotifications] = useState<Notification[]>(() => 
+    loadFromStorage('notifications', [])
+  );
+
+  const [invites, setInvites] = useState<Invite[]>(() => 
+    loadFromStorage('invites', [])
+  );
+
   // Save to localStorage whenever state changes
   useEffect(() => {
     saveToStorage('currentUser', currentUser);
@@ -87,7 +109,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     saveToStorage('isAuthenticated', isAuthenticated);
     saveToStorage('groups', groups);
     saveToStorage('tasks', tasks);
-  }, [currentUser, users, authUsers, isAuthenticated, groups, tasks]);
+    saveToStorage('notifications', notifications);
+    saveToStorage('invites', invites);
+  }, [currentUser, users, authUsers, isAuthenticated, groups, tasks, notifications, invites]);
 
   const createUser = (name: string): User => {
     const newUser: User = {
@@ -164,7 +188,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       id: uuidv4(),
       name,
       description,
-      members: [currentUser],
+      members: [
+        {
+          userId: currentUser.id,
+          role: 'admin',
+          joinedAt: new Date()
+        }
+      ],
       createdAt: new Date(),
       createdBy: currentUser.id,
     };
@@ -176,10 +206,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const joinGroup = (groupId: string) => {
     setGroups((prev) =>
       prev.map((group) => {
-        if (group.id === groupId && !group.members.some(member => member.id === currentUser.id)) {
+        if (group.id === groupId && !group.members.some(member => member.userId === currentUser.id)) {
           return {
             ...group,
-            members: [...group.members, currentUser],
+            members: [...group.members, {
+              userId: currentUser.id,
+              role: 'member',
+              joinedAt: new Date()
+            }],
           };
         }
         return group;
@@ -194,13 +228,245 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (group.id === groupId) {
           return {
             ...group,
-            members: group.members.filter((member) => member.id !== currentUser.id),
+            members: group.members.filter((member) => member.userId !== currentUser.id),
           };
         }
         return group;
       })
     );
     toast.success('Você saiu do grupo!');
+  };
+
+  const isGroupAdmin = (groupId: string): boolean => {
+    const group = getGroupById(groupId);
+    if (!group) return false;
+    
+    const memberInfo = group.members.find(member => member.userId === currentUser.id);
+    return memberInfo?.role === 'admin';
+  };
+
+  const getGroupMembers = (groupId: string) => {
+    const group = getGroupById(groupId);
+    if (!group) return [];
+    
+    return group.members.map(member => {
+      const user = getUserById(member.userId);
+      if (!user) return null;
+      
+      return {
+        ...user,
+        role: member.role
+      };
+    }).filter(Boolean) as (User & { role: 'admin' | 'member' })[];
+  };
+
+  const inviteToGroup = (groupId: string, email: string) => {
+    if (!isGroupAdmin(groupId)) {
+      toast.error('Somente administradores podem convidar membros!');
+      return;
+    }
+    
+    // Check if user with this email exists
+    const invitedUser = authUsers.find(user => user.email === email);
+    
+    if (!invitedUser) {
+      toast.error('Usuário não encontrado com este email!');
+      return;
+    }
+    
+    // Check if user is already a member
+    const group = getGroupById(groupId);
+    if (group?.members.some(member => {
+      const user = getUserById(member.userId);
+      return user?.email === email;
+    })) {
+      toast.error('Este usuário já é membro do grupo!');
+      return;
+    }
+    
+    // Check if invite already exists
+    if (invites.some(invite => invite.groupId === groupId && invite.email === email && invite.status === 'pending')) {
+      toast.error('Já existe um convite pendente para este usuário!');
+      return;
+    }
+    
+    const newInvite: Invite = {
+      id: uuidv4(),
+      groupId,
+      email,
+      sentAt: new Date(),
+      status: 'pending',
+      senderId: currentUser.id
+    };
+    
+    setInvites(prev => [...prev, newInvite]);
+    
+    // Create notification for invited user
+    const newNotification: Notification = {
+      id: uuidv4(),
+      type: 'invite',
+      title: 'Convite para Grupo',
+      content: `Você foi convidado para participar do grupo ${group?.name}`,
+      createdAt: new Date(),
+      read: false,
+      data: {
+        groupId,
+        senderId: currentUser.id
+      }
+    };
+    
+    setNotifications(prev => [...prev, newNotification]);
+    
+    toast.success('Convite enviado com sucesso!');
+  };
+
+  const respondToInvite = (inviteId: string, accept: boolean) => {
+    const invite = invites.find(inv => inv.id === inviteId);
+    
+    if (!invite || invite.status !== 'pending') {
+      toast.error('Convite inválido ou já respondido!');
+      return;
+    }
+    
+    // Update invite status
+    setInvites(prev => prev.map(inv => 
+      inv.id === inviteId 
+        ? { ...inv, status: accept ? 'accepted' : 'rejected' } 
+        : inv
+    ));
+    
+    // If accepted, add user to group
+    if (accept) {
+      setGroups(prev => prev.map(group => {
+        if (group.id === invite.groupId) {
+          return {
+            ...group,
+            members: [...group.members, {
+              userId: currentUser.id,
+              role: 'member',
+              joinedAt: new Date()
+            }]
+          };
+        }
+        return group;
+      }));
+      
+      // Create notification for group admin
+      const newNotification: Notification = {
+        id: uuidv4(),
+        type: 'message',
+        title: 'Convite Aceito',
+        content: `${currentUser.name} aceitou seu convite para o grupo`,
+        createdAt: new Date(),
+        read: false,
+        data: {
+          groupId: invite.groupId,
+          senderId: currentUser.id
+        }
+      };
+      
+      setNotifications(prev => [...prev, newNotification]);
+      
+      toast.success('Você entrou no grupo!');
+    } else {
+      // Create notification for group admin
+      const newNotification: Notification = {
+        id: uuidv4(),
+        type: 'message',
+        title: 'Convite Recusado',
+        content: `${currentUser.name} recusou seu convite para o grupo`,
+        createdAt: new Date(),
+        read: false,
+        data: {
+          groupId: invite.groupId,
+          senderId: currentUser.id
+        }
+      };
+      
+      setNotifications(prev => [...prev, newNotification]);
+      
+      toast.success('Convite recusado');
+    }
+  };
+
+  const changeMemberRole = (groupId: string, userId: string, newRole: 'admin' | 'member') => {
+    if (!isGroupAdmin(groupId)) {
+      toast.error('Somente administradores podem alterar cargos!');
+      return;
+    }
+    
+    setGroups(prev => prev.map(group => {
+      if (group.id === groupId) {
+        return {
+          ...group,
+          members: group.members.map(member => 
+            member.userId === userId 
+              ? { ...member, role: newRole }
+              : member
+          )
+        };
+      }
+      return group;
+    }));
+    
+    const user = getUserById(userId);
+    toast.success(`Cargo de ${user?.name || 'usuário'} alterado para ${newRole === 'admin' ? 'Administrador' : 'Membro'}`);
+  };
+
+  const removeMemberFromGroup = (groupId: string, userId: string) => {
+    if (!isGroupAdmin(groupId)) {
+      toast.error('Somente administradores podem remover membros!');
+      return;
+    }
+    
+    // Prevent removing the last admin
+    const group = getGroupById(groupId);
+    if (!group) return;
+    
+    const admins = group.members.filter(member => member.role === 'admin');
+    if (admins.length === 1 && admins[0].userId === userId) {
+      toast.error('Não é possível remover o único administrador do grupo!');
+      return;
+    }
+    
+    setGroups(prev => prev.map(group => {
+      if (group.id === groupId) {
+        return {
+          ...group,
+          members: group.members.filter(member => member.userId !== userId)
+        };
+      }
+      return group;
+    }));
+    
+    const user = getUserById(userId);
+    toast.success(`${user?.name || 'Usuário'} removido do grupo`);
+  };
+
+  const getUnreadNotificationsCount = () => {
+    return notifications.filter(notification => 
+      !notification.read && 
+      (!notification.data?.senderId || notification.data.senderId !== currentUser.id)
+    ).length;
+  };
+
+  const markNotificationAsRead = (notificationId: string) => {
+    setNotifications(prev => prev.map(notification => 
+      notification.id === notificationId 
+        ? { ...notification, read: true } 
+        : notification
+    ));
+  };
+
+  const markAllNotificationsAsRead = () => {
+    setNotifications(prev => prev.map(notification => ({ ...notification, read: true })));
+  };
+
+  const getUserInvites = () => {
+    return invites.filter(invite => {
+      const user = authUsers.find(user => user.email === invite.email);
+      return user?.id === currentUser.id && invite.status === 'pending';
+    });
   };
 
   const createTask = (
@@ -225,6 +491,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
     
     setTasks((prev) => [...prev, newTask]);
+    
+    // Notify assigned users
+    if (assignedTo && assignedTo.length > 0) {
+      const group = getGroupById(groupId);
+      
+      assignedTo.forEach(userId => {
+        if (userId === currentUser.id) return; // Don't notify self
+        
+        const newNotification: Notification = {
+          id: uuidv4(),
+          type: 'message',
+          title: 'Nova Tarefa Atribuída',
+          content: `${currentUser.name} atribuiu a tarefa "${title}" para você no grupo ${group?.name}`,
+          createdAt: new Date(),
+          read: false,
+          data: {
+            groupId,
+            senderId: currentUser.id
+          }
+        };
+        
+        setNotifications(prev => [...prev, newNotification]);
+      });
+    }
+    
     toast.success('Tarefa criada com sucesso!');
   };
 
@@ -232,6 +523,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     taskId: string,
     updates: Partial<Omit<Task, 'id' | 'createdAt' | 'createdBy' | 'groupId'>>
   ) => {
+    // Get the current task to check for assignedTo changes
+    const currentTask = tasks.find(task => task.id === taskId);
+    const newAssignees = updates.assignedTo || [];
+    const oldAssignees = currentTask?.assignedTo || [];
+    
+    // Find new assignees to notify
+    const newlyAssigned = newAssignees.filter(id => !oldAssignees.includes(id));
+    
     setTasks((prev) =>
       prev.map((task) => {
         if (task.id === taskId) {
@@ -240,6 +539,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return task;
       })
     );
+    
+    // Notify newly assigned users
+    if (newlyAssigned.length > 0 && currentTask) {
+      const group = getGroupById(currentTask.groupId);
+      
+      newlyAssigned.forEach(userId => {
+        if (userId === currentUser.id) return; // Don't notify self
+        
+        const newNotification: Notification = {
+          id: uuidv4(),
+          type: 'message',
+          title: 'Nova Tarefa Atribuída',
+          content: `${currentUser.name} atribuiu a tarefa "${currentTask.title}" para você no grupo ${group?.name}`,
+          createdAt: new Date(),
+          read: false,
+          data: {
+            groupId: currentTask.groupId,
+            senderId: currentUser.id
+          }
+        };
+        
+        setNotifications(prev => [...prev, newNotification]);
+      });
+    }
+    
     toast.success('Tarefa atualizada com sucesso!');
   };
 
@@ -265,6 +589,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     users,
     groups,
     tasks,
+    notifications,
+    invites,
     isAuthenticated,
     createUser,
     registerUser,
@@ -279,6 +605,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     getGroupById,
     getTasksForGroup,
     getUserById,
+    inviteToGroup,
+    respondToInvite,
+    changeMemberRole,
+    removeMemberFromGroup,
+    getUnreadNotificationsCount,
+    markNotificationAsRead,
+    markAllNotificationsAsRead,
+    getUserInvites,
+    isGroupAdmin,
+    getGroupMembers
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
