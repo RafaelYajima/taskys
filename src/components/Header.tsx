@@ -1,20 +1,32 @@
 
 import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useApp } from '@/context/AppContext';
 import { Button } from '@/components/ui/button';
-import { UserCircle, Home, Users, PlusCircle, Menu } from 'lucide-react';
+import { UserCircle, Home, Users, PlusCircle, Menu, LogOut } from 'lucide-react';
 import { 
   Sheet, 
   SheetContent, 
   SheetTrigger 
 } from '@/components/ui/sheet';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useIsMobile } from '@/hooks/use-mobile';
 
 const Header: React.FC = () => {
-  const { currentUser } = useApp();
+  const { currentUser, logoutUser } = useApp();
   const location = useLocation();
+  const navigate = useNavigate();
   const isMobile = useIsMobile();
+
+  const handleLogout = () => {
+    logoutUser();
+    navigate('/login');
+  };
 
   const isActive = (path: string) => {
     return location.pathname === path;
@@ -51,6 +63,12 @@ const Header: React.FC = () => {
           </Link>
         </Button>
       </div>
+      <div className="mt-2 flex justify-center">
+        <Button onClick={handleLogout} variant="outline" className="w-full text-red-500 hover:text-red-600">
+          <LogOut size={18} className="mr-2" />
+          Sair
+        </Button>
+      </div>
     </div>
   );
 
@@ -80,15 +98,31 @@ const Header: React.FC = () => {
             </Button>
           )}
 
-          <Link to="/profile" className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-muted-foreground overflow-hidden transition-transform hover:scale-110">
-              {currentUser.avatar ? (
-                <img src={currentUser.avatar} alt={currentUser.name} />
-              ) : (
-                <UserCircle size={24} />
-              )}
-            </div>
-          </Link>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="rounded-full">
+                <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-muted-foreground overflow-hidden transition-transform hover:scale-110">
+                  {currentUser.avatar ? (
+                    <img src={currentUser.avatar} alt={currentUser.name} />
+                  ) : (
+                    <UserCircle size={24} />
+                  )}
+                </div>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56 animate-scale-in">
+              <DropdownMenuItem asChild>
+                <Link to="/profile" className="cursor-pointer">
+                  <UserCircle className="mr-2 h-4 w-4" />
+                  <span>Perfil</span>
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleLogout} className="text-red-500 cursor-pointer focus:text-red-500">
+                <LogOut className="mr-2 h-4 w-4" />
+                <span>Sair</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           {isMobile && (
             <Sheet>

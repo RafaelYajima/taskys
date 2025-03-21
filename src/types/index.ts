@@ -2,6 +2,7 @@
 export interface User {
   id: string;
   name: string;
+  email: string;
   avatar?: string;
 }
 
@@ -30,3 +31,7 @@ export interface Task {
 
 export type Status = 'pending' | 'in-progress' | 'completed';
 export type Priority = 'low' | 'medium' | 'high';
+
+export interface AuthUser extends User {
+  password?: string;
+}

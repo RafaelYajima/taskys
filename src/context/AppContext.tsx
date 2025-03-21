@@ -1,7 +1,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import { User, Group, Task } from '@/types';
+import { User, Group, Task, AuthUser } from '@/types';
 import { toast } from 'sonner';
 
 interface AppContextType {
@@ -9,7 +9,11 @@ interface AppContextType {
   users: User[];
   groups: Group[];
   tasks: Task[];
+  isAuthenticated: boolean;
   createUser: (name: string) => User;
+  registerUser: (name: string, email: string, password: string) => Promise<boolean>;
+  loginUser: (email: string, password: string) => Promise<boolean>;
+  logoutUser: () => void;
   createGroup: (name: string, description?: string) => void;
   joinGroup: (groupId: string) => void;
   leaveGroup: (groupId: string) => void;
@@ -48,6 +52,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const defaultUser: User = {
     id: uuidv4(),
     name: 'Usuário',
+    email: '',
   };
 
   const [currentUser, setCurrentUser] = useState<User>(() => 
@@ -55,7 +60,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   );
   
   const [users, setUsers] = useState<User[]>(() => 
-    loadFromStorage('users', [currentUser])
+    loadFromStorage('users', [])
+  );
+  
+  const [authUsers, setAuthUsers] = useState<AuthUser[]>(() => 
+    loadFromStorage('authUsers', [])
+  );
+  
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => 
+    loadFromStorage('isAuthenticated', false)
   );
   
   const [groups, setGroups] = useState<Group[]>(() => 
@@ -70,14 +83,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     saveToStorage('currentUser', currentUser);
     saveToStorage('users', users);
+    saveToStorage('authUsers', authUsers);
+    saveToStorage('isAuthenticated', isAuthenticated);
     saveToStorage('groups', groups);
     saveToStorage('tasks', tasks);
-  }, [currentUser, users, groups, tasks]);
+  }, [currentUser, users, authUsers, isAuthenticated, groups, tasks]);
 
   const createUser = (name: string): User => {
     const newUser: User = {
       id: uuidv4(),
       name,
+      email: '',
     };
     
     setUsers((prev) => [...prev, newUser]);
@@ -85,6 +101,62 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     
     toast.success('Usuário criado com sucesso!');
     return newUser;
+  };
+
+  const registerUser = async (name: string, email: string, password: string): Promise<boolean> => {
+    // Check if email already exists
+    if (authUsers.some(user => user.email === email)) {
+      return false;
+    }
+
+    const newUser: AuthUser = {
+      id: uuidv4(),
+      name,
+      email,
+      password,
+    };
+    
+    setAuthUsers((prev) => [...prev, newUser]);
+    
+    // Also add to regular users array without password
+    const userWithoutPassword: User = {
+      id: newUser.id,
+      name: newUser.name,
+      email: newUser.email,
+    };
+    
+    setUsers((prev) => [...prev, userWithoutPassword]);
+    setCurrentUser(userWithoutPassword);
+    setIsAuthenticated(true);
+    
+    return true;
+  };
+
+  const loginUser = async (email: string, password: string): Promise<boolean> => {
+    const user = authUsers.find(
+      (user) => user.email === email && user.password === password
+    );
+
+    if (user) {
+      const userWithoutPassword: User = {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        avatar: user.avatar,
+      };
+      
+      setCurrentUser(userWithoutPassword);
+      setIsAuthenticated(true);
+      return true;
+    }
+    
+    return false;
+  };
+
+  const logoutUser = () => {
+    setCurrentUser(defaultUser);
+    setIsAuthenticated(false);
+    toast.success('Logout realizado com sucesso!');
   };
 
   const createGroup = (name: string, description?: string) => {
@@ -193,7 +265,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     users,
     groups,
     tasks,
+    isAuthenticated,
     createUser,
+    registerUser,
+    loginUser,
+    logoutUser,
     createGroup,
     joinGroup,
     leaveGroup,
