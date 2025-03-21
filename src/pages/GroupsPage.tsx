@@ -11,16 +11,18 @@ import { Link } from 'react-router-dom';
 import ProfileSetup from '@/components/ProfileSetup';
 
 const GroupsPage = () => {
-  const { groups } = useApp();
+  const { groups, currentUser } = useApp();
   const [searchQuery, setSearchQuery] = useState('');
 
-  const filteredGroups = groups.filter(group => 
+  // Primeiro, encontre todos os grupos dos quais o usuário é membro
+  const userGroups = groups.filter(group => 
+    group.members.some(member => member.userId === currentUser.id)
+  );
+  
+  // Depois, aplique o filtro de pesquisa somente nos grupos do usuário
+  const filteredUserGroups = userGroups.filter(group => 
     group.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     (group.description && group.description.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
-
-  const userGroups = filteredGroups.filter(group => 
-    group.members.some(member => member.userId === useApp().currentUser.id)
   );
 
   return (
@@ -65,9 +67,9 @@ const GroupsPage = () => {
               <h2 className="text-xl font-semibold">Meus Grupos</h2>
             </div>
             
-            {userGroups.length > 0 ? (
+            {filteredUserGroups.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {userGroups.map((group) => (
+                {filteredUserGroups.map((group) => (
                   <GroupCard key={group.id} group={group} />
                 ))}
               </div>
@@ -76,7 +78,9 @@ const GroupsPage = () => {
                 <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                 <h3 className="text-lg font-medium mb-2">Nenhum grupo encontrado</h3>
                 <p className="text-muted-foreground mb-4">
-                  Você ainda não participa de nenhum grupo.
+                  {searchQuery 
+                    ? `Não encontramos nenhum grupo com "${searchQuery}".` 
+                    : "Você ainda não participa de nenhum grupo."}
                 </p>
                 <Button asChild>
                   <Link to="/groups/new">
@@ -87,7 +91,7 @@ const GroupsPage = () => {
             )}
           </div>
 
-          {filteredGroups.length === 0 && searchQuery !== '' && (
+          {userGroups.length > 0 && filteredUserGroups.length === 0 && searchQuery !== '' && (
             <Card className="p-6 text-center bg-muted/40 mt-8 animate-fade-in">
               <Search className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <h3 className="text-lg font-medium mb-2">Nenhum resultado encontrado</h3>

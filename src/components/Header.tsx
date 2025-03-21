@@ -19,9 +19,14 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import NotificationsMenu from './NotificationsMenu';
 
 const Header = () => {
-  const { currentUser, logoutUser } = useApp();
+  const { currentUser, logoutUser, groups } = useApp();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
+  
+  // Conte corretamente os grupos do usuário atual
+  const userGroupsCount = groups.filter(group => 
+    group.members.some(member => member.userId === currentUser.id)
+  ).length;
   
   const handleLogout = () => {
     logoutUser();
