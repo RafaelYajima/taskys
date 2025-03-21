@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '@/context/AppContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,7 +11,7 @@ import {
   PopoverTrigger 
 } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { CalendarIcon, Plus, Trash } from 'lucide-react';
+import { CalendarIcon, Plus, Trash, Edit } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -41,14 +41,17 @@ import {
 import { Checkbox } from '@/components/ui/checkbox';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import { Task } from '@/types';
 
 interface TaskFormProps {
   groupId: string;
   members: { id: string; name: string }[];
+  taskToEdit?: Task | null;
+  onClose?: () => void;
 }
 
-const TaskForm: React.FC<TaskFormProps> = ({ groupId, members }) => {
-  const { createTask } = useApp();
+const TaskForm: React.FC<TaskFormProps> = ({ groupId, members, taskToEdit, onClose }) => {
+  const { createTask, updateTask } = useApp();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState<'low' | 'medium' | 'high'>('medium');
@@ -56,6 +59,18 @@ const TaskForm: React.FC<TaskFormProps> = ({ groupId, members }) => {
   const [assignedTo, setAssignedTo] = useState<string[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [errors, setErrors] = useState({ title: '' });
+
+  // Set form data when editing an existing task
+  useEffect(() => {
+    if (taskToEdit) {
+      setTitle(taskToEdit.title);
+      setDescription(taskToEdit.description || '');
+      setPriority(taskToEdit.priority);
+      setDueDate(taskToEdit.dueDate);
+      setAssignedTo(taskToEdit.assignedTo || []);
+      setShowForm(true);
+    }
+  }, [taskToEdit]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -65,22 +80,39 @@ const TaskForm: React.FC<TaskFormProps> = ({ groupId, members }) => {
       return;
     }
     
-    createTask(
-      title,
-      groupId,
-      description || undefined,
-      priority,
-      dueDate,
-      assignedTo.length > 0 ? assignedTo : undefined
-    );
+    if (taskToEdit) {
+      // Update existing task
+      updateTask(taskToEdit.id, {
+        title,
+        description: description || undefined,
+        priority,
+        dueDate,
+        assignedTo: assignedTo.length > 0 ? assignedTo : undefined
+      });
+    } else {
+      // Create new task
+      createTask(
+        title,
+        groupId,
+        description || undefined,
+        priority,
+        dueDate,
+        assignedTo.length > 0 ? assignedTo : undefined
+      );
+    }
     
     // Reset form
+    resetForm();
+  };
+
+  const resetForm = () => {
     setTitle('');
     setDescription('');
     setPriority('medium');
     setDueDate(undefined);
     setAssignedTo([]);
     setShowForm(false);
+    if (onClose) onClose();
   };
 
   const toggleAssignment = (userId: string) => {
@@ -112,11 +144,13 @@ const TaskForm: React.FC<TaskFormProps> = ({ groupId, members }) => {
       ) : (
         <div className="bg-card border rounded-lg p-4 shadow-sm animate-scale-in">
           <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-medium">Nova Tarefa</h3>
+            <h3 className="text-lg font-medium">
+              {taskToEdit ? 'Editar Tarefa' : 'Nova Tarefa'}
+            </h3>
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => setShowForm(false)}
+              onClick={resetForm}
             >
               <Trash className="h-4 w-4" />
             </Button>
@@ -261,7 +295,15 @@ const TaskForm: React.FC<TaskFormProps> = ({ groupId, members }) => {
             )}
             
             <div className="flex justify-end">
-              <Button type="submit">Criar Tarefa</Button>
+              <Button type="submit">
+                {taskToEdit ? (
+                  <>
+                    <Edit className="h-4 w-4 mr-2" /> Salvar Alterações
+                  </>
+                ) : (
+                  'Criar Tarefa'
+                )}
+              </Button>
             </div>
           </form>
         </div>
