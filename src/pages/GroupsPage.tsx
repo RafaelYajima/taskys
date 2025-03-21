@@ -11,16 +11,18 @@ import { Link } from 'react-router-dom';
 import ProfileSetup from '@/components/ProfileSetup';
 
 const GroupsPage = () => {
-  const { groups } = useApp();
+  const { groups, currentUser } = useApp();
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Filter all groups first based on search query
   const filteredGroups = groups.filter(group => 
     group.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     (group.description && group.description.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
+  // Then get only groups where the current user is a member
   const userGroups = filteredGroups.filter(group => 
-    group.members.some(member => member.userId === useApp().currentUser.id)
+    group.members.some(member => member.userId === currentUser.id)
   );
 
   return (
@@ -62,7 +64,7 @@ const GroupsPage = () => {
           <div className="mb-10 animate-slide-up">
             <div className="flex items-center gap-2 mb-4">
               <Users className="h-5 w-5 text-primary" />
-              <h2 className="text-xl font-semibold">Meus Grupos</h2>
+              <h2 className="text-xl font-semibold">Meus Grupos ({userGroups.length})</h2>
             </div>
             
             {userGroups.length > 0 ? (
