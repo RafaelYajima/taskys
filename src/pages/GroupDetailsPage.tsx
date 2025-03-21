@@ -59,6 +59,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import { Task } from '@/types';
 
 const GroupDetailsPage = () => {
   const { groupId } = useParams<{ groupId: string }>();
@@ -79,6 +80,7 @@ const GroupDetailsPage = () => {
   const [inviteError, setInviteError] = useState('');
   const [activeTab, setActiveTab] = useState('tarefas');
   const [showInviteDialog, setShowInviteDialog] = useState(false);
+  const [taskToEdit, setTaskToEdit] = useState<Task | null>(null);
 
   if (!groupId) {
     navigate('/groups');
@@ -97,6 +99,11 @@ const GroupDetailsPage = () => {
   const pendingTasks = tasks.filter((task) => task.status === 'pending');
   const inProgressTasks = tasks.filter((task) => task.status === 'in-progress');
   const completedTasks = tasks.filter((task) => task.status === 'completed');
+
+  const handleEditTask = (task: Task) => {
+    setTaskToEdit(task);
+    setActiveTab('tarefas');
+  };
 
   const handleLeaveGroup = () => {
     if (window.confirm('Tem certeza que deseja sair do grupo?')) {
@@ -222,7 +229,7 @@ const GroupDetailsPage = () => {
             </TabsList>
 
             <TabsContent value="tarefas" className="space-y-6">
-              <TaskForm groupId={groupId} members={members.map(m => ({ id: m.id, name: m.name }))} />
+              <TaskForm groupId={groupId} members={members.map(m => ({ id: m.id, name: m.name }))} taskToEdit={taskToEdit} onClose={() => setTaskToEdit(null)} />
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {/* Tarefas Pendentes */}
@@ -237,7 +244,7 @@ const GroupDetailsPage = () => {
                   <CardContent className="space-y-4">
                     {pendingTasks.length > 0 ? (
                       pendingTasks.map((task) => (
-                        <TaskCard key={task.id} task={task} />
+                        <TaskCard key={task.id} task={task} onEdit={handleEditTask} />
                       ))
                     ) : (
                       <div className="text-center py-8 text-muted-foreground">
@@ -260,7 +267,7 @@ const GroupDetailsPage = () => {
                   <CardContent className="space-y-4">
                     {inProgressTasks.length > 0 ? (
                       inProgressTasks.map((task) => (
-                        <TaskCard key={task.id} task={task} />
+                        <TaskCard key={task.id} task={task} onEdit={handleEditTask} />
                       ))
                     ) : (
                       <div className="text-center py-8 text-muted-foreground">
@@ -283,7 +290,7 @@ const GroupDetailsPage = () => {
                   <CardContent className="space-y-4">
                     {completedTasks.length > 0 ? (
                       completedTasks.map((task) => (
-                        <TaskCard key={task.id} task={task} />
+                        <TaskCard key={task.id} task={task} onEdit={handleEditTask} />
                       ))
                     ) : (
                       <div className="text-center py-8 text-muted-foreground">
