@@ -19,14 +19,9 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import NotificationsMenu from './NotificationsMenu';
 
 const Header = () => {
-  const { currentUser, logoutUser, groups } = useApp();
+  const { currentUser, logoutUser } = useApp();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
-  
-  // Count user groups
-  const userGroupsCount = groups.filter(group => 
-    group.members.some(member => member.userId === currentUser.id)
-  ).length;
   
   const handleLogout = () => {
     logoutUser();
@@ -50,7 +45,7 @@ const Header = () => {
       </Link>
       <Link to="/groups" className="flex items-center p-2 rounded-md hover:bg-accent">
         <Users className="mr-2 h-5 w-5" />
-        <span>Grupos ({userGroupsCount})</span>
+        <span>Grupos</span>
       </Link>
       <Link to="/profile" className="flex items-center p-2 rounded-md hover:bg-accent">
         <User className="mr-2 h-5 w-5" />
@@ -110,7 +105,7 @@ const Header = () => {
               to="/groups"
               className="text-sm font-medium transition-colors hover:text-primary"
             >
-              Grupos ({userGroupsCount})
+              Grupos
             </Link>
           </nav>
         )}
@@ -141,12 +136,6 @@ const Header = () => {
                 <Link to="/profile">
                   <User className="mr-2 h-4 w-4" />
                   <span>Perfil</span>
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link to="/groups">
-                  <Users className="mr-2 h-4 w-4" />
-                  <span>Meus Grupos ({userGroupsCount})</span>
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
