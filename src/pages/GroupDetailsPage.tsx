@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useApp } from '@/context/AppContext';
@@ -238,7 +237,7 @@ const GroupDetailsPage = () => {
                   <CardContent className="space-y-4">
                     {pendingTasks.length > 0 ? (
                       pendingTasks.map((task) => (
-                        <TaskCard key={task.id} task={task} groupMembers={members} />
+                        <TaskCard key={task.id} task={task} />
                       ))
                     ) : (
                       <div className="text-center py-8 text-muted-foreground">
@@ -261,7 +260,7 @@ const GroupDetailsPage = () => {
                   <CardContent className="space-y-4">
                     {inProgressTasks.length > 0 ? (
                       inProgressTasks.map((task) => (
-                        <TaskCard key={task.id} task={task} groupMembers={members} />
+                        <TaskCard key={task.id} task={task} />
                       ))
                     ) : (
                       <div className="text-center py-8 text-muted-foreground">
@@ -284,7 +283,7 @@ const GroupDetailsPage = () => {
                   <CardContent className="space-y-4">
                     {completedTasks.length > 0 ? (
                       completedTasks.map((task) => (
-                        <TaskCard key={task.id} task={task} groupMembers={members} />
+                        <TaskCard key={task.id} task={task} />
                       ))
                     ) : (
                       <div className="text-center py-8 text-muted-foreground">

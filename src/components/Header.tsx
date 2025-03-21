@@ -15,13 +15,13 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { LogOut, User, Home, Users, Check } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { useMobile } from '@/hooks/use-mobile';
+import { useIsMobile } from '@/hooks/use-mobile';
 import NotificationsMenu from './NotificationsMenu';
 
 const Header = () => {
   const { currentUser, logoutUser } = useApp();
   const navigate = useNavigate();
-  const isMobile = useMobile();
+  const isMobile = useIsMobile();
   
   const handleLogout = () => {
     logoutUser();
