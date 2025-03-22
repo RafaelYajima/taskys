@@ -16,18 +16,14 @@ const AuthCheck: React.FC<AuthCheckProps> = ({ children, requireAuth = true }) =
   const location = useLocation();
 
   useEffect(() => {
-    console.log('AuthCheck: isAuthenticated =', isAuthenticated, 'path =', location.pathname);
-    
     // If authentication is required but user is not authenticated
     if (requireAuth && !isAuthenticated && !PUBLIC_ROUTES.includes(location.pathname)) {
-      console.log('Redirecting to login from:', location.pathname);
-      navigate('/login', { replace: true });
+      navigate('/login');
     }
 
     // If user is authenticated but tries to access login/register pages
     if (isAuthenticated && PUBLIC_ROUTES.includes(location.pathname)) {
-      console.log('Redirecting authenticated user to home from:', location.pathname);
-      navigate('/', { replace: true });
+      navigate('/');
     }
   }, [isAuthenticated, location.pathname, navigate, requireAuth]);
 
