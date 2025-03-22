@@ -9,4 +9,23 @@ const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiO
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
-export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+// Create a redirect URL based on the current origin
+const getRedirectUrl = () => {
+  if (typeof window !== 'undefined') {
+    return `${window.location.origin}/auth/callback`;
+  }
+  return 'http://localhost:3000/auth/callback';
+};
+
+export const supabase = createClient<Database>(
+  SUPABASE_URL,
+  SUPABASE_PUBLISHABLE_KEY,
+  {
+    auth: {
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: true,
+      flowType: 'pkce'
+    }
+  }
+);
