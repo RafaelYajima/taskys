@@ -27,7 +27,9 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     detectSessionInUrl: true,
     flowType: 'pkce',
     storage: typeof window !== 'undefined' ? localStorage : undefined,
-    // Redirect to the actual running site URL
-    redirectTo: getSiteUrl()
+    // Set redirect URL in options
+    url: {
+      redirectTo: getSiteUrl()
+    }
   }
 });
