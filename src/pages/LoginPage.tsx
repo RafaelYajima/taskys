@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { LogIn, ArrowRight } from 'lucide-react';
+import { LogIn, ArrowRight, Loader2 } from 'lucide-react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
@@ -23,6 +23,7 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 const LoginPage = () => {
   const { loginUser } = useApp();
   const navigate = useNavigate();
+  const [isLoading, setIsLoading] = useState(false);
   
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -33,16 +34,24 @@ const LoginPage = () => {
   });
 
   const onSubmit = async (data: LoginFormValues) => {
+    setIsLoading(true);
     try {
+      console.log('Tentando fazer login com:', data.email);
       const success = await loginUser(data.email, data.password);
+      
       if (success) {
+        console.log('Login bem-sucedido');
         toast.success('Login realizado com sucesso!');
-        navigate('/');
+        navigate('/', { replace: true });
       } else {
+        console.log('Login falhou');
         toast.error('Email ou senha incorretos!');
       }
     } catch (error) {
+      console.error('Erro durante o login:', error);
       toast.error('Ocorreu um erro ao fazer login. Tente novamente.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -76,6 +85,7 @@ const LoginPage = () => {
                           {...field} 
                           type="email"
                           className="transition-all duration-200 focus:ring-2"
+                          disabled={isLoading}
                         />
                       </FormControl>
                       <FormMessage />
@@ -94,6 +104,7 @@ const LoginPage = () => {
                           type="password" 
                           {...field}
                           className="transition-all duration-200 focus:ring-2"
+                          disabled={isLoading}
                         />
                       </FormControl>
                       <FormMessage />
@@ -102,9 +113,22 @@ const LoginPage = () => {
                 />
               </CardContent>
               <CardFooter className="flex flex-col space-y-4">
-                <Button type="submit" className="w-full group">
-                  Entrar
-                  <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+                <Button 
+                  type="submit" 
+                  className="w-full group" 
+                  disabled={isLoading}
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Entrando...
+                    </>
+                  ) : (
+                    <>
+                      Entrar
+                      <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+                    </>
+                  )}
                 </Button>
                 <div className="text-center text-sm">
                   Não tem uma conta?{' '}

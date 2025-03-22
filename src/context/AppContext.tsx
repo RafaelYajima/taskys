@@ -1,8 +1,9 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { User, Group, Task, AuthUser, Notification, Invite, GroupMember } from '@/types';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
+import { Session, User as SupabaseUser } from '@supabase/supabase-js';
 
 interface AppContextType {
   currentUser: User;
@@ -32,12 +33,10 @@ interface AppContextType {
   getGroupById: (groupId: string) => Group | undefined;
   getTasksForGroup: (groupId: string) => Task[];
   getUserById: (userId: string) => User | undefined;
-  // Novos métodos de gerenciamento de grupo
   inviteToGroup: (groupId: string, email: string) => void;
   respondToInvite: (inviteId: string, accept: boolean) => void;
   changeMemberRole: (groupId: string, userId: string, newRole: 'admin' | 'member') => void;
   removeMemberFromGroup: (groupId: string, userId: string) => void;
-  // Notificações
   getUnreadNotificationsCount: () => number;
   markNotificationAsRead: (notificationId: string) => void;
   markAllNotificationsAsRead: () => void;
@@ -81,9 +80,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     loadFromStorage('authUsers', [])
   );
   
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => 
-    loadFromStorage('isAuthenticated', false)
-  );
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [session, setSession] = useState<Session | null>(null);
   
   const [groups, setGroups] = useState<Group[]>(() => 
     loadFromStorage('groups', [])
@@ -101,17 +99,64 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     loadFromStorage('invites', [])
   );
 
+  // Initialize auth state with Supabase
+  useEffect(() => {
+    // Setup auth state listener FIRST
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        console.log('Auth state changed:', event, session);
+        setSession(session);
+        setIsAuthenticated(!!session);
+        
+        if (session?.user) {
+          // Update current user from Supabase user
+          const supabaseUser: User = {
+            id: session.user.id,
+            name: session.user.user_metadata?.name || 'Usuário',
+            email: session.user.email || '',
+            avatar: session.user.user_metadata?.avatar_url,
+          };
+          setCurrentUser(supabaseUser);
+        } else {
+          setCurrentUser(defaultUser);
+        }
+      }
+    );
+
+    // THEN check for existing session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log('Initial session:', session);
+      setSession(session);
+      setIsAuthenticated(!!session);
+      
+      if (session?.user) {
+        // Update current user from Supabase user
+        const supabaseUser: User = {
+          id: session.user.id,
+          name: session.user.user_metadata?.name || 'Usuário',
+          email: session.user.email || '',
+          avatar: session.user.user_metadata?.avatar_url,
+        };
+        setCurrentUser(supabaseUser);
+      }
+    });
+
+    // Cleanup subscription on unmount
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
   // Save to localStorage whenever state changes
   useEffect(() => {
     saveToStorage('currentUser', currentUser);
     saveToStorage('users', users);
     saveToStorage('authUsers', authUsers);
-    saveToStorage('isAuthenticated', isAuthenticated);
     saveToStorage('groups', groups);
     saveToStorage('tasks', tasks);
     saveToStorage('notifications', notifications);
     saveToStorage('invites', invites);
-  }, [currentUser, users, authUsers, isAuthenticated, groups, tasks, notifications, invites]);
+  }, [currentUser, users, authUsers, groups, tasks, notifications, invites]);
 
   const createUser = (name: string): User => {
     const newUser: User = {
@@ -128,59 +173,72 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const registerUser = async (name: string, email: string, password: string): Promise<boolean> => {
-    // Check if email already exists
-    if (authUsers.some(user => user.email === email)) {
+    try {
+      // Registrar usuário no Supabase
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            name
+          },
+        }
+      });
+
+      if (error) {
+        console.error("Erro ao registrar usuário:", error.message);
+        toast.error(error.message);
+        return false;
+      }
+
+      // Usuário registrado com sucesso
+      toast.success('Conta criada com sucesso! Verifique seu email para confirmar o registro.');
+      return true;
+    } catch (error) {
+      console.error("Erro inesperado:", error);
+      toast.error('Ocorreu um erro ao criar sua conta. Tente novamente.');
       return false;
     }
-
-    const newUser: AuthUser = {
-      id: uuidv4(),
-      name,
-      email,
-      password,
-    };
-    
-    setAuthUsers((prev) => [...prev, newUser]);
-    
-    // Also add to regular users array without password
-    const userWithoutPassword: User = {
-      id: newUser.id,
-      name: newUser.name,
-      email: newUser.email,
-    };
-    
-    setUsers((prev) => [...prev, userWithoutPassword]);
-    setCurrentUser(userWithoutPassword);
-    setIsAuthenticated(true);
-    
-    return true;
   };
 
   const loginUser = async (email: string, password: string): Promise<boolean> => {
-    const user = authUsers.find(
-      (user) => user.email === email && user.password === password
-    );
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
 
-    if (user) {
-      const userWithoutPassword: User = {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        avatar: user.avatar,
-      };
-      
-      setCurrentUser(userWithoutPassword);
-      setIsAuthenticated(true);
+      if (error) {
+        console.error("Erro de login:", error.message);
+        toast.error(error.message);
+        return false;
+      }
+
       return true;
+    } catch (error) {
+      console.error("Erro inesperado:", error);
+      toast.error('Ocorreu um erro ao fazer login. Tente novamente.');
+      return false;
     }
-    
-    return false;
   };
 
-  const logoutUser = () => {
-    setCurrentUser(defaultUser);
-    setIsAuthenticated(false);
-    toast.success('Logout realizado com sucesso!');
+  const logoutUser = async () => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      
+      if (error) {
+        console.error("Erro ao fazer logout:", error.message);
+        toast.error(error.message);
+        return;
+      }
+      
+      setCurrentUser(defaultUser);
+      setIsAuthenticated(false);
+      toast.success('Logout realizado com sucesso!');
+    } catch (error) {
+      console.error("Erro inesperado ao fazer logout:", error);
+      toast.error('Ocorreu um erro ao fazer logout. Tente novamente.');
+    }
   };
 
   const createGroup = (name: string, description?: string) => {
