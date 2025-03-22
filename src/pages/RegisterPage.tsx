@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { UserPlus, ArrowRight, Loader2 } from 'lucide-react';
+import { UserPlus, ArrowRight, Loader2, Info } from 'lucide-react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
@@ -28,6 +28,8 @@ const RegisterPage = () => {
   const { registerUser } = useApp();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
+  const [isRegistered, setIsRegistered] = useState(false);
+  const [registeredEmail, setRegisteredEmail] = useState('');
   
   const form = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
@@ -47,8 +49,9 @@ const RegisterPage = () => {
       
       if (success) {
         console.log('Registro bem-sucedido');
-        toast.success('Conta criada com sucesso!');
-        navigate('/');
+        setIsRegistered(true);
+        setRegisteredEmail(data.email);
+        toast.success('Conta criada com sucesso! Verifique seu email para confirmar o cadastro.');
       } else {
         console.log('Registro falhou');
         toast.error('Este email já está em uso!');
@@ -60,6 +63,42 @@ const RegisterPage = () => {
       setIsLoading(false);
     }
   };
+
+  // Se registrado com sucesso, mostrar mensagem de confirmação
+  if (isRegistered) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4 animate-fade-in">
+        <div className="w-full max-w-md">
+          <Card className="w-full animate-scale-in">
+            <CardHeader className="space-y-1">
+              <div className="flex justify-center mb-4">
+                <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
+                  <Info className="h-6 w-6 text-green-600" />
+                </div>
+              </div>
+              <CardTitle className="text-2xl text-center">Verifique seu Email</CardTitle>
+              <CardDescription className="text-center">
+                Enviamos um link de confirmação para <strong>{registeredEmail}</strong>
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4 text-center">
+              <p>Por favor, verifique sua caixa de entrada e clique no link de confirmação para ativar sua conta.</p>
+              <p className="text-sm text-muted-foreground">Não recebeu o email? Verifique sua pasta de spam ou junk.</p>
+            </CardContent>
+            <CardFooter className="flex flex-col space-y-4">
+              <Button 
+                onClick={() => navigate('/login')} 
+                className="w-full group"
+              >
+                Ir para o Login
+                <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+              </Button>
+            </CardFooter>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4 animate-fade-in">
@@ -154,6 +193,12 @@ const RegisterPage = () => {
                     </FormItem>
                   )}
                 />
+                <div className="rounded-lg bg-blue-50 p-3 text-sm text-blue-900 border border-blue-200">
+                  <div className="flex items-center gap-2">
+                    <Info className="h-4 w-4" />
+                    <span>Após registrar-se, você receberá um email para confirmar sua conta.</span>
+                  </div>
+                </div>
               </CardContent>
               <CardFooter className="flex flex-col space-y-4">
                 <Button 
