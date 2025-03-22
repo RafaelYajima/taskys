@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useApp } from '@/context/AppContext';
@@ -83,6 +82,12 @@ const RegisterPage = () => {
             </CardHeader>
             <CardContent className="space-y-4 text-center">
               <p>Por favor, verifique sua caixa de entrada e clique no link de confirmação para ativar sua conta.</p>
+              <div className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900 border border-amber-200">
+                <div className="flex items-center gap-2">
+                  <Info className="h-4 w-4" />
+                  <span>Importante: Ao clicar no link no email, certifique-se de que você está no mesmo navegador/dispositivo onde fez o registro.</span>
+                </div>
+              </div>
               <p className="text-sm text-muted-foreground">Não recebeu o email? Verifique sua pasta de spam ou junk.</p>
             </CardContent>
             <CardFooter className="flex flex-col space-y-4">

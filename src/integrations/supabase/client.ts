@@ -9,12 +9,25 @@ const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiO
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
+// Define the current site URL based on the environment
+const getSiteUrl = () => {
+  if (typeof window === 'undefined') return '';
+  
+  // For development environments, get the current window location
+  // This ensures the redirect works regardless of the port being used
+  const currentUrl = window.location.origin;
+  return currentUrl;
+};
+
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
     storageKey: 'supabase.auth.token',
     detectSessionInUrl: true,
-    storage: typeof window !== 'undefined' ? localStorage : undefined
+    flowType: 'pkce',
+    storage: typeof window !== 'undefined' ? localStorage : undefined,
+    // Redirect to the actual running site URL
+    redirectTo: getSiteUrl()
   }
 });
